@@ -5,27 +5,29 @@ public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        // UC4: Search
+        // Room objects
         Room single = new SingleRoom();
         Room doubleRoom = new DoubleRoom();
         Room suite = new SuiteRoom();
 
+        // Inventory
         RoomInventory inventory = new RoomInventory(5, 3, 2);
-        RoomSearchService searchService = new RoomSearchService();
 
+        // ================== UC4: SEARCH ==================
+        RoomSearchService searchService = new RoomSearchService();
         searchService.searchAvailableRooms(inventory, single, doubleRoom, suite);
 
-        // UC5: Queue
+        // ================== UC5: QUEUE ==================
         BookingRequestQueue queue = new BookingRequestQueue();
 
         queue.addRequest(new Reservation("Abhi", "Single"));
         queue.addRequest(new Reservation("Subha", "Double"));
         queue.addRequest(new Reservation("Vanmathi", "Suite"));
 
-        // UC6: Allocation
+        // ================== UC6: ALLOCATION ==================
         RoomAllocationService allocationService = new RoomAllocationService();
 
-        // UC8: Booking History
+        // ================== UC8: HISTORY ==================
         BookingHistory history = new BookingHistory();
 
         System.out.println("\nRoom Allocation Processing\n");
@@ -36,11 +38,11 @@ public class BookMyStayApp {
             boolean success = allocationService.allocateRoom(r, inventory);
 
             if (success) {
-                history.addReservation(r); // 🔥 store history
+                history.addReservation(r);
             }
         }
 
-        // UC8: Reporting
+        // ================== UC8: REPORT ==================
         System.out.println("\nBooking History and Reporting\n");
 
         BookingReportService reportService = new BookingReportService();
@@ -98,6 +100,7 @@ class SuiteRoom extends Room {
 
 // ================== INVENTORY ==================
 class RoomInventory {
+
     private Map<String, Integer> availability;
 
     public RoomInventory(int s, int d, int su) {
@@ -124,6 +127,7 @@ class RoomInventory {
 // ================== SEARCH ==================
 class RoomSearchService {
     public void searchAvailableRooms(RoomInventory inv, Room s, Room d, Room su) {
+
         Map<String, Integer> a = inv.getRoomAvailability();
 
         System.out.println("Room Search\n");
@@ -199,11 +203,7 @@ class RoomAllocationService {
 // ================== HISTORY ==================
 class BookingHistory {
 
-    private List<Reservation> confirmedReservations;
-
-    public BookingHistory() {
-        confirmedReservations = new ArrayList<>();
-    }
+    private List<Reservation> confirmedReservations = new ArrayList<>();
 
     public void addReservation(Reservation r) {
         confirmedReservations.add(r);
