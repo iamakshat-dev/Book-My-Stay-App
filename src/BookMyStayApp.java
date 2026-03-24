@@ -1,132 +1,176 @@
-// Main Class
 import java.util.HashMap;
 import java.util.Map;
 
-// ================= MAIN CLASS =================
+import java.util.LinkedList;
+import java.util.Queue;
+
+class ConcurrentBookingProcessor implements Runnable {
+
+    // Shared booking request queue
+    private BookingRequestQueue bookingQueue;
+
+    // Shared room inventory
+    private RoomInventory inventory;
+
+    // Shared allocation service
+    private RoomAllocationService allocationService;
+
+    // Constructor
+    public ConcurrentBookingProcessor(
+            BookingRequestQueue bookingQueue,
+            RoomInventory inventory,
+            RoomAllocationService allocationService) {
+
+        this.bookingQueue = bookingQueue;
+        this.inventory = inventory;
+        this.allocationService = allocationService;
+    }
+
+    // Thread execution
+    @Override
+    public void run() {
+
+        while (true) {
+            Reservation reservation;
+
+            // 🔒 Critical Section 1: Access booking queue safely
+            synchronized (bookingQueue) {
+
+                if (bookingQueue.isEmpty()) {
+                    break; // Exit when no more requests
+                }
+
+                reservation = bookingQueue.getNextRequest();
+            }
+
+            // 🔒 Critical Section 2: Allocate room safely
+            synchronized (inventory) {
+                allocationService.allocateRoom(reservation, inventory);
+            }
+        }
+    }
+}
+
 public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        // Create room objects (domain model)
-        Room single = new SingleRoom();
-        Room doubleRoom = new DoubleRoom();
-        Room suite = new SuiteRoom();
-
-        // Initialize centralized inventory
+        // Shared resources
+        BookingRequestQueue bookingQueue = new BookingRequestQueue();
         RoomInventory inventory = new RoomInventory();
+        RoomAllocationService allocationService = new RoomAllocationService();
 
-        System.out.println("Hotel Room Inventory (Centralized)\n");
+        // Add booking requests
+        bookingQueue.addRequest(new Reservation("John", "Single"));
+        bookingQueue.addRequest(new Reservation("Alice", "Double"));
+        bookingQueue.addRequest(new Reservation("Bob", "Suite"));
+        bookingQueue.addRequest(new Reservation("Emma", "Single"));
 
-        // Display room details + availability from inventory
-        display(single, inventory);
-        display(doubleRoom, inventory);
-        display(suite, inventory);
+        // Create threads
+        Thread t1 = new Thread(
+                new ConcurrentBookingProcessor(bookingQueue, inventory, allocationService)
+        );
 
-        // Example update
-        System.out.println("\n--- Updating Availability ---");
-        inventory.updateAvailability("SingleRoom", 4);
+        Thread t2 = new Thread(
+                new ConcurrentBookingProcessor(bookingQueue, inventory, allocationService)
+        );
 
-        // Display after update
-        System.out.println("\nAfter Update:\n");
-        display(single, inventory);
-    }
+        // Start threads
+        t1.start();
+        t2.start();
 
-    private static void display(Room room, RoomInventory inventory) {
-        room.displayRoomDetails();
-        int available = inventory.getRoomAvailability()
-                .get(room.getClass().getSimpleName());
-        System.out.println("Available: " + available);
-        System.out.println();
+        // Wait for completion
+        try {
+            t1.join();
+            t2.join();
+        } catch (InterruptedException e) {
+            System.out.println("Thread execution interrupted.");
+        }
+
+        // Print remaining inventory
+        System.out.println("\nRemaining Inventory:");
+        inventory.printInventory();
     }
 }
 
-// ================= INVENTORY CLASS =================
+class Reservation {
+
+    private String guestName;
+    private String roomType;
+
+    public Reservation(String guestName, String roomType) {
+        this.guestName = guestName;
+        this.roomType = roomType;
+    }
+
+    public String getGuestName() {
+        return guestName;
+    }
+
+    public String getRoomType() {
+        return roomType;
+    }
+}
+
+
 class RoomInventory {
 
-    // Key = Room type name, Value = available count
-    private Map<String, Integer> roomAvailability;
+    private Map<String, Integer> rooms = new HashMap<>();
 
-    // Constructor
     public RoomInventory() {
-        roomAvailability = new HashMap<>();
-        initializeInventory();
+        rooms.put("Single", 3);
+        rooms.put("Double", 2);
+        rooms.put("Suite", 1);
     }
 
-    // Initialize default availability
-    private void initializeInventory() {
-        roomAvailability.put("SingleRoom", 5);
-        roomAvailability.put("DoubleRoom", 3);
-        roomAvailability.put("SuiteRoom", 2);
+    public boolean isAvailable(String type) {
+        return rooms.getOrDefault(type, 0) > 0;
     }
 
-    // Get current availability map
-    public Map<String, Integer> getRoomAvailability() {
-        return roomAvailability;
+    public void bookRoom(String type) {
+        rooms.put(type, rooms.get(type) - 1);
     }
 
-    // Update availability for a room type
-    public void updateAvailability(String roomType, int count) {
-        roomAvailability.put(roomType, count);
+    public void printInventory() {
+        for (Map.Entry<String, Integer> entry : rooms.entrySet()) {
+            System.out.println(entry.getKey() + ": " + entry.getValue());
+        }
     }
 }
 
-// ================= ABSTRACT CLASS =================
-abstract class Room {
-    protected int numberOfBeds;
-    protected int squareFeet;
-    protected double pricePerNight;
+class RoomAllocationService {
 
-    public Room(int numberOfBeds, int squareFeet, double pricePerNight) {
-        this.numberOfBeds = numberOfBeds;
-        this.squareFeet = squareFeet;
-        this.pricePerNight = pricePerNight;
-    }
+    public void allocateRoom(Reservation reservation, RoomInventory inventory) {
 
-    public abstract void displayRoomDetails();
-}
+        String type = reservation.getRoomType();
 
-// ================= ROOM TYPES =================
-class SingleRoom extends Room {
-
-    public SingleRoom() {
-        super(1, 250, 1500.0);
-    }
-
-    @Override
-    public void displayRoomDetails() {
-        System.out.println("Single Room:");
-        System.out.println("Beds: " + numberOfBeds);
-        System.out.println("Size: " + squareFeet + " sqft");
-        System.out.println("Price per night: " + pricePerNight);
+        if (inventory.isAvailable(type)) {
+            inventory.bookRoom(type);
+            System.out.println("Booking confirmed for Guest: "
+                    + reservation.getGuestName()
+                    + ", Room Type: " + type);
+        } else {
+            System.out.println("No rooms available for Guest: "
+                    + reservation.getGuestName()
+                    + ", Room Type: " + type);
+        }
     }
 }
 
-class DoubleRoom extends Room {
 
-    public DoubleRoom() {
-        super(2, 400, 2500.0);
+class BookingRequestQueue {
+
+    private Queue<Reservation> queue = new LinkedList<>();
+
+    public void addRequest(Reservation reservation) {
+        queue.offer(reservation);
     }
 
-    @Override
-    public void displayRoomDetails() {
-        System.out.println("Double Room:");
-        System.out.println("Beds: " + numberOfBeds);
-        System.out.println("Size: " + squareFeet + " sqft");
-        System.out.println("Price per night: " + pricePerNight);
-    }
-}
-
-class SuiteRoom extends Room {
-
-    public SuiteRoom() {
-        super(3, 750, 5000.0);
+    public Reservation getNextRequest() {
+        return queue.poll();
     }
 
-    @Override
-    public void displayRoomDetails() {
-        System.out.println("Suite Room:");
-        System.out.println("Beds: " + numberOfBeds);
-        System.out.println("Size: " + squareFeet + " sqft");
-        System.out.println("Price per night: " + pricePerNight);
+    public boolean isEmpty() {
+        return queue.isEmpty();
     }
 }
