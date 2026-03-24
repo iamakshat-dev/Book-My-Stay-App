@@ -24,8 +24,6 @@ public class BookMyStayApp {
         );
 
         // ================== UC5: BOOKING QUEUE ==================
-        System.out.println("Booking Request Queue\n");
-
         BookingRequestQueue bookingQueue = new BookingRequestQueue();
 
         bookingQueue.addRequest(new Reservation("Abhi", "Single"));
@@ -37,10 +35,34 @@ public class BookMyStayApp {
 
         RoomAllocationService allocationService = new RoomAllocationService();
 
+        List<String> confirmedReservationIds = new ArrayList<>();
+
         while (bookingQueue.hasPendingRequests()) {
             Reservation r = bookingQueue.getNextRequest();
-            allocationService.allocateRoom(r, inventory);
+            String roomId = allocationService.allocateRoom(r, inventory);
+
+            if (roomId != null) {
+                confirmedReservationIds.add(roomId);
+            }
         }
+
+        // ================== UC7: ADD-ON SERVICES ==================
+        System.out.println("\nAdd-On Service Selection\n");
+
+        AddOnServiceManager serviceManager = new AddOnServiceManager();
+
+        Service breakfast = new Service("Breakfast", 500);
+        Service spa = new Service("Spa", 1000);
+
+        String reservationId = confirmedReservationIds.get(0);
+
+        serviceManager.addService(reservationId, breakfast);
+        serviceManager.addService(reservationId, spa);
+
+        double totalCost = serviceManager.calculateTotalServiceCost(reservationId);
+
+        System.out.println("Reservation ID: " + reservationId);
+        System.out.println("Total Add-On Cost: " + totalCost);
     }
 }
 
@@ -204,15 +226,10 @@ class BookingRequestQueue {
 // ================== ROOM ALLOCATION SERVICE ==================
 class RoomAllocationService {
 
-    private Set<String> allocatedRoomIds;
-    private Map<String, Set<String>> assignedRoomsByType;
+    private Set<String> allocatedRoomIds = new HashSet<>();
+    private Map<String, Set<String>> assignedRoomsByType = new HashMap<>();
 
-    public RoomAllocationService() {
-        allocatedRoomIds = new HashSet<>();
-        assignedRoomsByType = new HashMap<>();
-    }
-
-    public void allocateRoom(Reservation reservation, RoomInventory inventory) {
+    public String allocateRoom(Reservation reservation, RoomInventory inventory) {
 
         String roomType = reservation.getRoomType();
 
@@ -221,19 +238,16 @@ class RoomAllocationService {
 
         if (available <= 0) {
             System.out.println("Booking failed for Guest: "
-                    + reservation.getGuestName()
-                    + " (No rooms available)");
-            return;
+                    + reservation.getGuestName());
+            return null;
         }
 
-        String roomId = generateRoomId(roomType);
+        int count = assignedRoomsByType
+                .getOrDefault(roomType, new HashSet<>()).size() + 1;
 
-        while (allocatedRoomIds.contains(roomId)) {
-            roomId = generateRoomId(roomType);
-        }
+        String roomId = roomType + "-" + count;
 
         allocatedRoomIds.add(roomId);
-
         assignedRoomsByType
                 .computeIfAbsent(roomType, k -> new HashSet<>())
                 .add(roomId);
@@ -243,14 +257,50 @@ class RoomAllocationService {
         System.out.println("Booking confirmed for Guest: "
                 + reservation.getGuestName()
                 + ", Room ID: " + roomId);
+
+        return roomId;
+    }
+}
+
+// ================== ADD-ON SERVICE ==================
+class Service {
+
+    private String serviceName;
+    private double cost;
+
+    public Service(String serviceName, double cost) {
+        this.serviceName = serviceName;
+        this.cost = cost;
     }
 
-    private String generateRoomId(String roomType) {
+    public String getServiceName() {
+        return serviceName;
+    }
 
-        int count = assignedRoomsByType
-                .getOrDefault(roomType, new HashSet<>())
-                .size() + 1;
+    public double getCost() {
+        return cost;
+    }
+}
 
-        return roomType + "-" + count;
+// ================== ADD-ON SERVICE MANAGER ==================
+class AddOnServiceManager {
+
+    private Map<String, List<Service>> servicesByReservation = new HashMap<>();
+
+    public void addService(String reservationId, Service service) {
+        servicesByReservation
+                .computeIfAbsent(reservationId, k -> new ArrayList<>())
+                .add(service);
+    }
+
+    public double calculateTotalServiceCost(String reservationId) {
+        double total = 0;
+
+        for (Service s : servicesByReservation
+                .getOrDefault(reservationId, new ArrayList<>())) {
+            total += s.getCost();
+        }
+
+        return total;
     }
 }
