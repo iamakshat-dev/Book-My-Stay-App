@@ -1,35 +1,32 @@
-// Main Class
+import java.util.HashMap;
+import java.util.Map;
+
 public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        // Create room objects (Polymorphism)
+        // Room objects (Polymorphism)
         Room single = new SingleRoom();
         Room doubleRoom = new DoubleRoom();
         Room suite = new SuiteRoom();
 
-        // Static availability
-        int singleAvailability = 5;
-        int doubleAvailability = 3;
-        int suiteAvailability = 2;
+        // Centralized Inventory
+        RoomInventory inventory = new RoomInventory(5, 3, 2);
 
-        System.out.println("Hotel Room Initialization\n");
+        // Search Service (Read-only)
+        RoomSearchService searchService = new RoomSearchService();
 
-        // Display details
-        single.displayRoomDetails();
-        System.out.println("Available: " + singleAvailability);
-        System.out.println();
-
-        doubleRoom.displayRoomDetails();
-        System.out.println("Available: " + doubleAvailability);
-        System.out.println();
-
-        suite.displayRoomDetails();
-        System.out.println("Available: " + suiteAvailability);
+        // Perform Room Search
+        searchService.searchAvailableRooms(
+                inventory,
+                single,
+                doubleRoom,
+                suite
+        );
     }
 }
 
-// Abstract Class
+// ================== ABSTRACT ROOM ==================
 abstract class Room {
     protected int numberOfBeds;
     protected int squareFeet;
@@ -44,7 +41,7 @@ abstract class Room {
     public abstract void displayRoomDetails();
 }
 
-// Single Room Class
+// ================== SINGLE ROOM ==================
 class SingleRoom extends Room {
 
     public SingleRoom() {
@@ -60,7 +57,7 @@ class SingleRoom extends Room {
     }
 }
 
-// Double Room Class
+// ================== DOUBLE ROOM ==================
 class DoubleRoom extends Room {
 
     public DoubleRoom() {
@@ -76,7 +73,7 @@ class DoubleRoom extends Room {
     }
 }
 
-// Suite Room Class
+// ================== SUITE ROOM ==================
 class SuiteRoom extends Room {
 
     public SuiteRoom() {
@@ -89,5 +86,56 @@ class SuiteRoom extends Room {
         System.out.println("Beds: " + numberOfBeds);
         System.out.println("Size: " + squareFeet + " sqft");
         System.out.println("Price per night: " + pricePerNight);
+    }
+}
+
+// ================== ROOM INVENTORY ==================
+class RoomInventory {
+
+    private Map<String, Integer> availability;
+
+    public RoomInventory(int single, int dbl, int suite) {
+        availability = new HashMap<>();
+        availability.put("Single", single);
+        availability.put("Double", dbl);
+        availability.put("Suite", suite);
+    }
+
+    // Read-only access
+    public Map<String, Integer> getRoomAvailability() {
+        return availability;
+    }
+}
+
+// ================== SEARCH SERVICE ==================
+class RoomSearchService {
+
+    public void searchAvailableRooms(
+            RoomInventory inventory,
+            Room singleRoom,
+            Room doubleRoom,
+            Room suiteRoom) {
+
+        Map<String, Integer> availability = inventory.getRoomAvailability();
+
+        System.out.println("Room Search\n");
+
+        if (availability.getOrDefault("Single", 0) > 0) {
+            singleRoom.displayRoomDetails();
+            System.out.println("Available: " + availability.get("Single"));
+            System.out.println();
+        }
+
+        if (availability.getOrDefault("Double", 0) > 0) {
+            doubleRoom.displayRoomDetails();
+            System.out.println("Available: " + availability.get("Double"));
+            System.out.println();
+        }
+
+        if (availability.getOrDefault("Suite", 0) > 0) {
+            suiteRoom.displayRoomDetails();
+            System.out.println("Available: " + availability.get("Suite"));
+            System.out.println();
+        }
     }
 }
