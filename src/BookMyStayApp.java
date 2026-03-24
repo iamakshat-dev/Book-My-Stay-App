@@ -49,6 +49,9 @@ class ConcurrentBookingProcessor implements Runnable {
             }
         }
     }
+
+    public String getGuestName() { return guestName; }
+    public String getRoomType() { return roomType; }
 }
 
 public class BookMyStayApp {
