@@ -5,13 +5,15 @@ public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        // ================== UC4: SEARCH ==================
+        // Room objects
         Room single = new SingleRoom();
         Room doubleRoom = new DoubleRoom();
         Room suite = new SuiteRoom();
 
+        // Inventory
         RoomInventory inventory = new RoomInventory(5, 3, 2);
 
+        // ================== UC4: SEARCH ==================
         RoomSearchService searchService = new RoomSearchService();
 
         searchService.searchAvailableRooms(
@@ -49,11 +51,9 @@ public class BookMyStayApp {
 
         AddOnServiceManager serviceManager = new AddOnServiceManager();
 
-        // Example services
         Service breakfast = new Service("Breakfast", 500);
         Service spa = new Service("Spa", 1000);
 
-        // Attach services to first reservation
         String reservationId = confirmedReservationIds.get(0);
 
         serviceManager.addService(reservationId, breakfast);
@@ -68,6 +68,7 @@ public class BookMyStayApp {
 
 // ================== ABSTRACT ROOM ==================
 abstract class Room {
+
     protected int numberOfBeds;
     protected int squareFeet;
     protected double pricePerNight;
@@ -83,7 +84,9 @@ abstract class Room {
 
 // ================== ROOM TYPES ==================
 class SingleRoom extends Room {
-    public SingleRoom() { super(1, 250, 1500.0); }
+    public SingleRoom() {
+        super(1, 250, 1500.0);
+    }
 
     public void displayRoomDetails() {
         System.out.println("Single Room:");
@@ -94,7 +97,9 @@ class SingleRoom extends Room {
 }
 
 class DoubleRoom extends Room {
-    public DoubleRoom() { super(2, 400, 2500.0); }
+    public DoubleRoom() {
+        super(2, 400, 2500.0);
+    }
 
     public void displayRoomDetails() {
         System.out.println("Double Room:");
@@ -105,7 +110,9 @@ class DoubleRoom extends Room {
 }
 
 class SuiteRoom extends Room {
-    public SuiteRoom() { super(3, 750, 5000.0); }
+    public SuiteRoom() {
+        super(3, 750, 5000.0);
+    }
 
     public void displayRoomDetails() {
         System.out.println("Suite Room:");
@@ -115,15 +122,16 @@ class SuiteRoom extends Room {
     }
 }
 
-// ================== INVENTORY ==================
+// ================== ROOM INVENTORY ==================
 class RoomInventory {
+
     private Map<String, Integer> availability;
 
-    public RoomInventory(int s, int d, int su) {
+    public RoomInventory(int single, int dbl, int suite) {
         availability = new HashMap<>();
-        availability.put("Single", s);
-        availability.put("Double", d);
-        availability.put("Suite", su);
+        availability.put("Single", single);
+        availability.put("Double", dbl);
+        availability.put("Suite", suite);
     }
 
     public Map<String, Integer> getRoomAvailability() {
@@ -140,103 +148,144 @@ class RoomInventory {
     }
 }
 
-// ================== SEARCH ==================
+// ================== SEARCH SERVICE ==================
 class RoomSearchService {
-    public void searchAvailableRooms(RoomInventory inv, Room s, Room d, Room su) {
-        Map<String, Integer> a = inv.getRoomAvailability();
+
+    public void searchAvailableRooms(
+            RoomInventory inventory,
+            Room singleRoom,
+            Room doubleRoom,
+            Room suiteRoom) {
+
+        Map<String, Integer> availability = inventory.getRoomAvailability();
 
         System.out.println("Room Search\n");
 
-        if (a.get("Single") > 0) {
-            s.displayRoomDetails();
-            System.out.println("Available: " + a.get("Single") + "\n");
+        if (availability.getOrDefault("Single", 0) > 0) {
+            singleRoom.displayRoomDetails();
+            System.out.println("Available: " + availability.get("Single"));
+            System.out.println();
         }
 
-        if (a.get("Double") > 0) {
-            d.displayRoomDetails();
-            System.out.println("Available: " + a.get("Double") + "\n");
+        if (availability.getOrDefault("Double", 0) > 0) {
+            doubleRoom.displayRoomDetails();
+            System.out.println("Available: " + availability.get("Double"));
+            System.out.println();
         }
 
-        if (a.get("Suite") > 0) {
-            su.displayRoomDetails();
-            System.out.println("Available: " + a.get("Suite") + "\n");
+        if (availability.getOrDefault("Suite", 0) > 0) {
+            suiteRoom.displayRoomDetails();
+            System.out.println("Available: " + availability.get("Suite"));
+            System.out.println();
         }
     }
 }
 
 // ================== RESERVATION ==================
 class Reservation {
+
     private String guestName;
     private String roomType;
 
-    public Reservation(String g, String r) {
-        guestName = g;
-        roomType = r;
+    public Reservation(String guestName, String roomType) {
+        this.guestName = guestName;
+        this.roomType = roomType;
     }
 
-    public String getGuestName() { return guestName; }
-    public String getRoomType() { return roomType; }
+    public String getGuestName() {
+        return guestName;
+    }
+
+    public String getRoomType() {
+        return roomType;
+    }
 }
 
-// ================== QUEUE ==================
+// ================== BOOKING QUEUE ==================
 class BookingRequestQueue {
-    private Queue<Reservation> q = new LinkedList<>();
 
-    public void addRequest(Reservation r) { q.offer(r); }
-    public Reservation getNextRequest() { return q.poll(); }
-    public boolean hasPendingRequests() { return !q.isEmpty(); }
+    private Queue<Reservation> requestQueue;
+
+    public BookingRequestQueue() {
+        requestQueue = new LinkedList<>();
+    }
+
+    public void addRequest(Reservation reservation) {
+        requestQueue.offer(reservation);
+    }
+
+    public Reservation getNextRequest() {
+        return requestQueue.poll();
+    }
+
+    public boolean hasPendingRequests() {
+        return !requestQueue.isEmpty();
+    }
 }
 
-// ================== ALLOCATION ==================
+// ================== ROOM ALLOCATION SERVICE ==================
 class RoomAllocationService {
 
-    private Map<String, Set<String>> map = new HashMap<>();
+    private Set<String> allocatedRoomIds = new HashSet<>();
+    private Map<String, Set<String>> assignedRoomsByType = new HashMap<>();
 
-    public String allocateRoom(Reservation r, RoomInventory inv) {
+    public String allocateRoom(Reservation reservation, RoomInventory inventory) {
 
-        String type = r.getRoomType();
-        int available = inv.getRoomAvailability().getOrDefault(type, 0);
+        String roomType = reservation.getRoomType();
+
+        int available = inventory.getRoomAvailability()
+                .getOrDefault(roomType, 0);
 
         if (available <= 0) {
-            System.out.println("Booking failed for " + r.getGuestName());
+            System.out.println("Booking failed for Guest: "
+                    + reservation.getGuestName());
             return null;
         }
 
-        int count = map.getOrDefault(type, new HashSet<>()).size() + 1;
-        String id = type + "-" + count;
+        int count = assignedRoomsByType
+                .getOrDefault(roomType, new HashSet<>()).size() + 1;
 
-        map.computeIfAbsent(type, k -> new HashSet<>()).add(id);
-        inv.reduceRoom(type);
+        String roomId = roomType + "-" + count;
+
+        allocatedRoomIds.add(roomId);
+        assignedRoomsByType
+                .computeIfAbsent(roomType, k -> new HashSet<>())
+                .add(roomId);
+
+        inventory.reduceRoom(roomType);
 
         System.out.println("Booking confirmed for Guest: "
-                + r.getGuestName() + ", Room ID: " + id);
+                + reservation.getGuestName()
+                + ", Room ID: " + roomId);
 
-        return id;
+        return roomId;
     }
 }
 
 // ================== ADD-ON SERVICE ==================
 class Service {
+
     private String serviceName;
     private double cost;
 
-    public Service(String name, double cost) {
-        this.serviceName = name;
+    public Service(String serviceName, double cost) {
+        this.serviceName = serviceName;
         this.cost = cost;
     }
 
-    public String getServiceName() { return serviceName; }
-    public double getCost() { return cost; }
+    public String getServiceName() {
+        return serviceName;
+    }
+
+    public double getCost() {
+        return cost;
+    }
 }
 
-// ================== SERVICE MANAGER ==================
+// ================== ADD-ON SERVICE MANAGER ==================
 class AddOnServiceManager {
 
-    private Map<String, List<Service>> servicesByReservation;
-
-    public AddOnServiceManager() {
-        servicesByReservation = new HashMap<>();
-    }
+    private Map<String, List<Service>> servicesByReservation = new HashMap<>();
 
     public void addService(String reservationId, Service service) {
         servicesByReservation
@@ -245,12 +294,13 @@ class AddOnServiceManager {
     }
 
     public double calculateTotalServiceCost(String reservationId) {
-        List<Service> services = servicesByReservation.getOrDefault(reservationId, new ArrayList<>());
-
         double total = 0;
-        for (Service s : services) {
+
+        for (Service s : servicesByReservation
+                .getOrDefault(reservationId, new ArrayList<>())) {
             total += s.getCost();
         }
+
         return total;
     }
 }
