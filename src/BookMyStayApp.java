@@ -5,68 +5,50 @@ public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        // ================== UC4: SEARCH ==================
+        // UC4: Search
         Room single = new SingleRoom();
         Room doubleRoom = new DoubleRoom();
         Room suite = new SuiteRoom();
 
         RoomInventory inventory = new RoomInventory(5, 3, 2);
-
         RoomSearchService searchService = new RoomSearchService();
 
-        searchService.searchAvailableRooms(
-                inventory,
-                single,
-                doubleRoom,
-                suite
-        );
+        searchService.searchAvailableRooms(inventory, single, doubleRoom, suite);
 
-        // ================== UC5: BOOKING QUEUE ==================
-        BookingRequestQueue bookingQueue = new BookingRequestQueue();
+        // UC5: Queue
+        BookingRequestQueue queue = new BookingRequestQueue();
 
-        bookingQueue.addRequest(new Reservation("Abhi", "Single"));
-        bookingQueue.addRequest(new Reservation("Subha", "Double"));
-        bookingQueue.addRequest(new Reservation("Vanmathi", "Suite"));
+        queue.addRequest(new Reservation("Abhi", "Single"));
+        queue.addRequest(new Reservation("Subha", "Double"));
+        queue.addRequest(new Reservation("Vanmathi", "Suite"));
 
-        // ================== UC6: ROOM ALLOCATION ==================
-        System.out.println("\nRoom Allocation Processing\n");
-
+        // UC6: Allocation
         RoomAllocationService allocationService = new RoomAllocationService();
 
-        List<String> confirmedReservationIds = new ArrayList<>();
+        // UC8: Booking History
+        BookingHistory history = new BookingHistory();
 
-        while (bookingQueue.hasPendingRequests()) {
-            Reservation r = bookingQueue.getNextRequest();
-            String roomId = allocationService.allocateRoom(r, inventory);
+        System.out.println("\nRoom Allocation Processing\n");
 
-            if (roomId != null) {
-                confirmedReservationIds.add(roomId);
+        while (queue.hasPendingRequests()) {
+            Reservation r = queue.getNextRequest();
+
+            boolean success = allocationService.allocateRoom(r, inventory);
+
+            if (success) {
+                history.addReservation(r); // 🔥 store history
             }
         }
 
-        // ================== UC7: ADD-ON SERVICES ==================
-        System.out.println("\nAdd-On Service Selection\n");
+        // UC8: Reporting
+        System.out.println("\nBooking History and Reporting\n");
 
-        AddOnServiceManager serviceManager = new AddOnServiceManager();
-
-        // Example services
-        Service breakfast = new Service("Breakfast", 500);
-        Service spa = new Service("Spa", 1000);
-
-        // Attach services to first reservation
-        String reservationId = confirmedReservationIds.get(0);
-
-        serviceManager.addService(reservationId, breakfast);
-        serviceManager.addService(reservationId, spa);
-
-        double totalCost = serviceManager.calculateTotalServiceCost(reservationId);
-
-        System.out.println("Reservation ID: " + reservationId);
-        System.out.println("Total Add-On Cost: " + totalCost);
+        BookingReportService reportService = new BookingReportService();
+        reportService.generateReport(history);
     }
 }
 
-// ================== ABSTRACT ROOM ==================
+// ================== ROOM ==================
 abstract class Room {
     protected int numberOfBeds;
     protected int squareFeet;
@@ -81,7 +63,6 @@ abstract class Room {
     public abstract void displayRoomDetails();
 }
 
-// ================== ROOM TYPES ==================
 class SingleRoom extends Room {
     public SingleRoom() { super(1, 250, 1500.0); }
 
@@ -192,14 +173,14 @@ class RoomAllocationService {
 
     private Map<String, Set<String>> map = new HashMap<>();
 
-    public String allocateRoom(Reservation r, RoomInventory inv) {
+    public boolean allocateRoom(Reservation r, RoomInventory inv) {
 
         String type = r.getRoomType();
         int available = inv.getRoomAvailability().getOrDefault(type, 0);
 
         if (available <= 0) {
             System.out.println("Booking failed for " + r.getGuestName());
-            return null;
+            return false;
         }
 
         int count = map.getOrDefault(type, new HashSet<>()).size() + 1;
@@ -211,46 +192,38 @@ class RoomAllocationService {
         System.out.println("Booking confirmed for Guest: "
                 + r.getGuestName() + ", Room ID: " + id);
 
-        return id;
+        return true;
     }
 }
 
-// ================== ADD-ON SERVICE ==================
-class Service {
-    private String serviceName;
-    private double cost;
+// ================== HISTORY ==================
+class BookingHistory {
 
-    public Service(String name, double cost) {
-        this.serviceName = name;
-        this.cost = cost;
+    private List<Reservation> confirmedReservations;
+
+    public BookingHistory() {
+        confirmedReservations = new ArrayList<>();
     }
 
-    public String getServiceName() { return serviceName; }
-    public double getCost() { return cost; }
+    public void addReservation(Reservation r) {
+        confirmedReservations.add(r);
+    }
+
+    public List<Reservation> getConfirmedReservations() {
+        return confirmedReservations;
+    }
 }
 
-// ================== SERVICE MANAGER ==================
-class AddOnServiceManager {
+// ================== REPORT ==================
+class BookingReportService {
 
-    private Map<String, List<Service>> servicesByReservation;
+    public void generateReport(BookingHistory history) {
 
-    public AddOnServiceManager() {
-        servicesByReservation = new HashMap<>();
-    }
+        System.out.println("Booking History Report\n");
 
-    public void addService(String reservationId, Service service) {
-        servicesByReservation
-                .computeIfAbsent(reservationId, k -> new ArrayList<>())
-                .add(service);
-    }
-
-    public double calculateTotalServiceCost(String reservationId) {
-        List<Service> services = servicesByReservation.getOrDefault(reservationId, new ArrayList<>());
-
-        double total = 0;
-        for (Service s : services) {
-            total += s.getCost();
+        for (Reservation r : history.getConfirmedReservations()) {
+            System.out.println("Guest: " + r.getGuestName()
+                    + ", Room Type: " + r.getRoomType());
         }
-        return total;
     }
 }
