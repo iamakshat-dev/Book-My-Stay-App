@@ -1,132 +1,115 @@
-// Main Class
-import java.util.HashMap;
-import java.util.Map;
+import java.io.*;
 
-// ================= MAIN CLASS =================
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
+
+class FilePersistenceService {
+
+
+    public void saveInventory(RoomInventory inventory, String filePath) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
+
+            for (String roomType : inventory.getAllRoomTypes()) {
+                int count = inventory.getAvailableCount(roomType);
+                writer.write(roomType + "=" + count);
+                writer.newLine();
+            }
+
+            System.out.println("Inventory saved successfully.");
+
+        } catch (IOException e) {
+            System.out.println("Error saving inventory: " + e.getMessage());
+        }
+    }
+
+
+    public void loadInventory(RoomInventory inventory, String filePath) {
+        File file = new File(filePath);
+
+        if (!file.exists()) {
+            System.out.println("No valid inventory data found. Starting fresh.");
+            return;
+        }
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split("=");
+
+                if (parts.length != 2) continue;
+
+                String roomType = parts[0];
+                int count = Integer.parseInt(parts[1]);
+
+                inventory.setAvailableCount(roomType, count);
+            }
+
+            System.out.println("Inventory loaded successfully.");
+
+        } catch (Exception e) {
+            System.out.println("Error loading inventory. Starting fresh.");
+        }
+    }
+}
+
+
 public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        // Create room objects (domain model)
-        Room single = new SingleRoom();
-        Room doubleRoom = new DoubleRoom();
-        Room suite = new SuiteRoom();
+        String filePath = "inventory.txt";
 
-        // Initialize centralized inventory
         RoomInventory inventory = new RoomInventory();
+        FilePersistenceService persistenceService = new FilePersistenceService();
 
-        System.out.println("Hotel Room Inventory (Centralized)\n");
+        System.out.println("System Recovery");
 
-        // Display room details + availability from inventory
-        display(single, inventory);
-        display(doubleRoom, inventory);
-        display(suite, inventory);
+        // Load previous state
+        persistenceService.loadInventory(inventory, filePath);
 
-        // Example update
-        System.out.println("\n--- Updating Availability ---");
-        inventory.updateAvailability("SingleRoom", 4);
+        // If no data exists, initialize defaults
+        if (inventory.isEmpty()) {
+            inventory.addRoomType("Single", 5);
+            inventory.addRoomType("Double", 3);
+            inventory.addRoomType("Suite", 2);
+        }
 
-        // Display after update
-        System.out.println("\nAfter Update:\n");
-        display(single, inventory);
-    }
+        // Display current inventory
+        System.out.println("\nCurrent Inventory:");
+        for (String type : inventory.getAllRoomTypes()) {
+            System.out.println(type + ": " + inventory.getAvailableCount(type));
+        }
 
-    private static void display(Room room, RoomInventory inventory) {
-        room.displayRoomDetails();
-        int available = inventory.getRoomAvailability()
-                .get(room.getClass().getSimpleName());
-        System.out.println("Available: " + available);
-        System.out.println();
+        // Simulate saving before shutdown
+        persistenceService.saveInventory(inventory, filePath);
     }
 }
 
-// ================= INVENTORY CLASS =================
+
 class RoomInventory {
 
-    // Key = Room type name, Value = available count
-    private Map<String, Integer> roomAvailability;
+    private Map<String, Integer> inventory = new HashMap<>();
 
-    // Constructor
-    public RoomInventory() {
-        roomAvailability = new HashMap<>();
-        initializeInventory();
+    public void addRoomType(String type, int count) {
+        inventory.put(type, count);
     }
 
-    // Initialize default availability
-    private void initializeInventory() {
-        roomAvailability.put("SingleRoom", 5);
-        roomAvailability.put("DoubleRoom", 3);
-        roomAvailability.put("SuiteRoom", 2);
+    public void setAvailableCount(String type, int count) {
+        inventory.put(type, count);
     }
 
-    // Get current availability map
-    public Map<String, Integer> getRoomAvailability() {
-        return roomAvailability;
+    public int getAvailableCount(String type) {
+        return inventory.getOrDefault(type, 0);
     }
 
-    // Update availability for a room type
-    public void updateAvailability(String roomType, int count) {
-        roomAvailability.put(roomType, count);
-    }
-}
-
-// ================= ABSTRACT CLASS =================
-abstract class Room {
-    protected int numberOfBeds;
-    protected int squareFeet;
-    protected double pricePerNight;
-
-    public Room(int numberOfBeds, int squareFeet, double pricePerNight) {
-        this.numberOfBeds = numberOfBeds;
-        this.squareFeet = squareFeet;
-        this.pricePerNight = pricePerNight;
+    public Set<String> getAllRoomTypes() {
+        return inventory.keySet();
     }
 
-    public abstract void displayRoomDetails();
-}
-
-// ================= ROOM TYPES =================
-class SingleRoom extends Room {
-
-    public SingleRoom() {
-        super(1, 250, 1500.0);
-    }
-
-    @Override
-    public void displayRoomDetails() {
-        System.out.println("Single Room:");
-        System.out.println("Beds: " + numberOfBeds);
-        System.out.println("Size: " + squareFeet + " sqft");
-        System.out.println("Price per night: " + pricePerNight);
-    }
-}
-
-class DoubleRoom extends Room {
-
-    public DoubleRoom() {
-        super(2, 400, 2500.0);
-    }
-
-    @Override
-    public void displayRoomDetails() {
-        System.out.println("Double Room:");
-        System.out.println("Beds: " + numberOfBeds);
-        System.out.println("Size: " + squareFeet + " sqft");
-        System.out.println("Price per night: " + pricePerNight);
-    }
-}
-
-class SuiteRoom extends Room {
-
-    public SuiteRoom() {
-        super(3, 750, 5000.0);
-    }
-
-    @Override
-    public void displayRoomDetails() {
-        System.out.println("Suite Room:");
-        System.out.println("Beds: " + numberOfBeds);
-        System.out.println("Size: " + squareFeet + " sqft");
-        System.out.println("Price per night: " + pricePerNight);
+    public boolean isEmpty() {
+        return inventory.isEmpty();
     }
 }
