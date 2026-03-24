@@ -1,6 +1,5 @@
 import java.util.*;
 
-// ================== MAIN ==================
 public class BookMyStayApp {
 
     public static void main(String[] args) {
@@ -10,7 +9,6 @@ public class BookMyStayApp {
         RoomAllocationService allocation = new RoomAllocationService();
         CancellationService cancelService = new CancellationService();
 
-        // Simulate bookings
         Reservation r1 = new Reservation("Abhi", "Single");
         Reservation r2 = new Reservation("Subha", "Double");
 
@@ -20,21 +18,17 @@ public class BookMyStayApp {
         history.addReservation(id1, r1);
         history.addReservation(id2, r2);
 
-        // 🔥 UC10: Cancellation
         System.out.println("\nBooking Cancellation\n");
 
         cancelService.cancelBooking(id1, history, inventory);
 
-        // Show rollback history
         cancelService.printRollbackHistory();
 
-        // Show updated inventory
         System.out.println("\nUpdated Single Room Availability: "
                 + inventory.getRoomAvailability().get("Single"));
     }
 }
 
-// ================== RESERVATION ==================
 class Reservation {
     private String guestName;
     private String roomType;
@@ -48,7 +42,6 @@ class Reservation {
     public String getRoomType() { return roomType; }
 }
 
-// ================== INVENTORY ==================
 class RoomInventory {
 
     private Map<String, Integer> availability;
@@ -78,7 +71,6 @@ class RoomInventory {
     }
 }
 
-// ================== ALLOCATION ==================
 class RoomAllocationService {
 
     private Map<String, Integer> counters = new HashMap<>();
@@ -104,7 +96,6 @@ class RoomAllocationService {
     }
 }
 
-// ================== HISTORY ==================
 class BookingHistory {
 
     private Map<String, Reservation> bookings = new HashMap<>();
@@ -126,7 +117,6 @@ class BookingHistory {
     }
 }
 
-// ================== CANCELLATION ==================
 class CancellationService {
 
     private Stack<String> rollbackStack = new Stack<>();
@@ -143,13 +133,9 @@ class CancellationService {
         Reservation r = history.getReservation(reservationId);
         String roomType = r.getRoomType();
 
-        // 🔥 rollback step
         rollbackStack.push(reservationId);
 
-        // restore inventory
         inventory.increaseRoom(roomType);
-
-        // remove booking
         history.removeReservation(reservationId);
 
         System.out.println("Booking cancelled successfully. "
