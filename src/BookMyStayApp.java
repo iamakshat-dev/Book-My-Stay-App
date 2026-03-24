@@ -1,132 +1,166 @@
-// Main Class
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
-// ================= MAIN CLASS =================
+// ================== MAIN ==================
 public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        // Create room objects (domain model)
-        Room single = new SingleRoom();
-        Room doubleRoom = new DoubleRoom();
-        Room suite = new SuiteRoom();
+        RoomInventory inventory = new RoomInventory(5, 3, 2);
+        BookingHistory history = new BookingHistory();
+        RoomAllocationService allocation = new RoomAllocationService();
+        CancellationService cancelService = new CancellationService();
 
-        // Initialize centralized inventory
-        RoomInventory inventory = new RoomInventory();
+        // Simulate bookings
+        Reservation r1 = new Reservation("Abhi", "Single");
+        Reservation r2 = new Reservation("Subha", "Double");
 
-        System.out.println("Hotel Room Inventory (Centralized)\n");
+        String id1 = allocation.allocateRoom(r1, inventory);
+        String id2 = allocation.allocateRoom(r2, inventory);
 
-        // Display room details + availability from inventory
-        display(single, inventory);
-        display(doubleRoom, inventory);
-        display(suite, inventory);
+        history.addReservation(id1, r1);
+        history.addReservation(id2, r2);
 
-        // Example update
-        System.out.println("\n--- Updating Availability ---");
-        inventory.updateAvailability("SingleRoom", 4);
+        // 🔥 UC10: Cancellation
+        System.out.println("\nBooking Cancellation\n");
 
-        // Display after update
-        System.out.println("\nAfter Update:\n");
-        display(single, inventory);
-    }
+        cancelService.cancelBooking(id1, history, inventory);
 
-    private static void display(Room room, RoomInventory inventory) {
-        room.displayRoomDetails();
-        int available = inventory.getRoomAvailability()
-                .get(room.getClass().getSimpleName());
-        System.out.println("Available: " + available);
-        System.out.println();
+        // Show rollback history
+        cancelService.printRollbackHistory();
+
+        // Show updated inventory
+        System.out.println("\nUpdated Single Room Availability: "
+                + inventory.getRoomAvailability().get("Single"));
     }
 }
 
-// ================= INVENTORY CLASS =================
+// ================== RESERVATION ==================
+class Reservation {
+    private String guestName;
+    private String roomType;
+
+    public Reservation(String g, String r) {
+        guestName = g;
+        roomType = r;
+    }
+
+    public String getGuestName() { return guestName; }
+    public String getRoomType() { return roomType; }
+}
+
+// ================== INVENTORY ==================
 class RoomInventory {
 
-    // Key = Room type name, Value = available count
-    private Map<String, Integer> roomAvailability;
+    private Map<String, Integer> availability;
 
-    // Constructor
-    public RoomInventory() {
-        roomAvailability = new HashMap<>();
-        initializeInventory();
+    public RoomInventory(int s, int d, int su) {
+        availability = new HashMap<>();
+        availability.put("Single", s);
+        availability.put("Double", d);
+        availability.put("Suite", su);
     }
 
-    // Initialize default availability
-    private void initializeInventory() {
-        roomAvailability.put("SingleRoom", 5);
-        roomAvailability.put("DoubleRoom", 3);
-        roomAvailability.put("SuiteRoom", 2);
-    }
-
-    // Get current availability map
     public Map<String, Integer> getRoomAvailability() {
-        return roomAvailability;
+        return availability;
     }
 
-    // Update availability for a room type
-    public void updateAvailability(String roomType, int count) {
-        roomAvailability.put(roomType, count);
-    }
-}
-
-// ================= ABSTRACT CLASS =================
-abstract class Room {
-    protected int numberOfBeds;
-    protected int squareFeet;
-    protected double pricePerNight;
-
-    public Room(int numberOfBeds, int squareFeet, double pricePerNight) {
-        this.numberOfBeds = numberOfBeds;
-        this.squareFeet = squareFeet;
-        this.pricePerNight = pricePerNight;
+    public void increaseRoom(String type) {
+        availability.put(type, availability.getOrDefault(type, 0) + 1);
     }
 
-    public abstract void displayRoomDetails();
-}
-
-// ================= ROOM TYPES =================
-class SingleRoom extends Room {
-
-    public SingleRoom() {
-        super(1, 250, 1500.0);
-    }
-
-    @Override
-    public void displayRoomDetails() {
-        System.out.println("Single Room:");
-        System.out.println("Beds: " + numberOfBeds);
-        System.out.println("Size: " + squareFeet + " sqft");
-        System.out.println("Price per night: " + pricePerNight);
+    public boolean reduceRoom(String type) {
+        int count = availability.getOrDefault(type, 0);
+        if (count > 0) {
+            availability.put(type, count - 1);
+            return true;
+        }
+        return false;
     }
 }
 
-class DoubleRoom extends Room {
+// ================== ALLOCATION ==================
+class RoomAllocationService {
 
-    public DoubleRoom() {
-        super(2, 400, 2500.0);
-    }
+    private Map<String, Integer> counters = new HashMap<>();
 
-    @Override
-    public void displayRoomDetails() {
-        System.out.println("Double Room:");
-        System.out.println("Beds: " + numberOfBeds);
-        System.out.println("Size: " + squareFeet + " sqft");
-        System.out.println("Price per night: " + pricePerNight);
+    public String allocateRoom(Reservation r, RoomInventory inv) {
+
+        String type = r.getRoomType();
+
+        if (!inv.reduceRoom(type)) {
+            System.out.println("Booking failed for " + r.getGuestName());
+            return null;
+        }
+
+        int count = counters.getOrDefault(type, 0) + 1;
+        counters.put(type, count);
+
+        String roomId = type + "-" + count;
+
+        System.out.println("Booking confirmed for Guest: "
+                + r.getGuestName() + ", Room ID: " + roomId);
+
+        return roomId;
     }
 }
 
-class SuiteRoom extends Room {
+// ================== HISTORY ==================
+class BookingHistory {
 
-    public SuiteRoom() {
-        super(3, 750, 5000.0);
+    private Map<String, Reservation> bookings = new HashMap<>();
+
+    public void addReservation(String id, Reservation r) {
+        bookings.put(id, r);
     }
 
-    @Override
-    public void displayRoomDetails() {
-        System.out.println("Suite Room:");
-        System.out.println("Beds: " + numberOfBeds);
-        System.out.println("Size: " + squareFeet + " sqft");
-        System.out.println("Price per night: " + pricePerNight);
+    public Reservation getReservation(String id) {
+        return bookings.get(id);
+    }
+
+    public void removeReservation(String id) {
+        bookings.remove(id);
+    }
+
+    public boolean exists(String id) {
+        return bookings.containsKey(id);
+    }
+}
+
+// ================== CANCELLATION ==================
+class CancellationService {
+
+    private Stack<String> rollbackStack = new Stack<>();
+
+    public void cancelBooking(String reservationId,
+                              BookingHistory history,
+                              RoomInventory inventory) {
+
+        if (!history.exists(reservationId)) {
+            System.out.println("Cancellation failed: Invalid reservation ID");
+            return;
+        }
+
+        Reservation r = history.getReservation(reservationId);
+        String roomType = r.getRoomType();
+
+        // 🔥 rollback step
+        rollbackStack.push(reservationId);
+
+        // restore inventory
+        inventory.increaseRoom(roomType);
+
+        // remove booking
+        history.removeReservation(reservationId);
+
+        System.out.println("Booking cancelled successfully. "
+                + "Inventory restored for room type: " + roomType);
+    }
+
+    public void printRollbackHistory() {
+        System.out.println("\nRollback History (Most Recent First):");
+
+        for (int i = rollbackStack.size() - 1; i >= 0; i--) {
+            System.out.println("Released Reservation ID: " + rollbackStack.get(i));
+        }
     }
 }
