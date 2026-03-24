@@ -5,13 +5,15 @@ public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        // ================== UC4: SEARCH ==================
+        // Room objects
         Room single = new SingleRoom();
         Room doubleRoom = new DoubleRoom();
         Room suite = new SuiteRoom();
 
+        // Inventory
         RoomInventory inventory = new RoomInventory(5, 3, 2);
 
+        // ================== UC4: SEARCH ==================
         RoomSearchService searchService = new RoomSearchService();
 
         searchService.searchAvailableRooms(
