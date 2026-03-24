@@ -20,10 +20,10 @@ public class BookMyStayApp {
             System.out.print("Enter room type (Single/Double/Suite): ");
             String type = scanner.nextLine();
 
-            // 🔥 VALIDATION STEP
+            // 🔥 VALIDATION
             validator.validate(name, type, inventory);
 
-            // If valid → proceed
+            // If valid → add to queue
             queue.addRequest(new Reservation(name, type));
 
             System.out.println("\nBooking accepted!");
@@ -49,20 +49,17 @@ class ReservationValidator {
     public void validate(String guestName, String roomType, RoomInventory inventory)
             throws InvalidBookingException {
 
-        // Validate guest name
         if (guestName == null || guestName.trim().isEmpty()) {
             throw new InvalidBookingException("Guest name cannot be empty.");
         }
 
-        // Validate room type
         if (!roomType.equals("Single") &&
-                !roomType.equals("Double") &&
-                !roomType.equals("Suite")) {
+            !roomType.equals("Double") &&
+            !roomType.equals("Suite")) {
 
             throw new InvalidBookingException("Invalid room type selected.");
         }
 
-        // Validate availability
         int available = inventory.getRoomAvailability()
                 .getOrDefault(roomType, 0);
 
