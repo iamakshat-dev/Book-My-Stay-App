@@ -5,15 +5,18 @@ public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        // ================== UC4 (SEARCH) ==================
+        // Room objects
         Room single = new SingleRoom();
         Room doubleRoom = new DoubleRoom();
         Room suite = new SuiteRoom();
 
+        // Centralized Inventory (UC4)
         RoomInventory inventory = new RoomInventory(5, 3, 2);
 
+        // Search Service (Read-only)
         RoomSearchService searchService = new RoomSearchService();
 
+        // UC4: Room Search
         searchService.searchAvailableRooms(
                 inventory,
                 single,
@@ -21,30 +24,27 @@ public class BookMyStayApp {
                 suite
         );
 
-        // ================== UC5 (BOOKING QUEUE) ==================
+        // UC5: Booking Queue
         System.out.println("Booking Request Queue\n");
 
         BookingRequestQueue bookingQueue = new BookingRequestQueue();
 
-        // Create booking requests
         Reservation r1 = new Reservation("Abhi", "Single");
         Reservation r2 = new Reservation("Subha", "Double");
         Reservation r3 = new Reservation("Vanmathi", "Suite");
 
-        // Add to queue
         bookingQueue.addRequest(r1);
         bookingQueue.addRequest(r2);
         bookingQueue.addRequest(r3);
 
-        // Process in FIFO order
         while (bookingQueue.hasPendingRequests()) {
             Reservation r = bookingQueue.getNextRequest();
 
             System.out.println(
                     "Processing booking for Guest: " +
-                            r.getGuestName() +
-                            ", Room Type: " +
-                            r.getRoomType()
+                    r.getGuestName() +
+                    ", Room Type: " +
+                    r.getRoomType()
             );
         }
     }
@@ -122,7 +122,7 @@ class RoomInventory {
         return availability;
     }
 
-    // UC5 NOT USED YET (for future UC6)
+    // For future UC6
     public boolean reduceRoom(String type) {
         int count = availability.getOrDefault(type, 0);
         if (count > 0) {
